@@ -208,9 +208,6 @@ class Tree
             }
 
             int u=1000;
-            //if (l-temp->actual->steps < 10){
-            //    u = greedy(temp->actual, temp->actual->steps+10);
-            //    if (u==-1) u=1000;}
 
             //Estado final
             if (temp->actual->unsorted_stacks==0) u=temp->actual->steps;

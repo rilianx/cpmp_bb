@@ -39,7 +39,10 @@ namespace cpmp {
         int Nbx = bx+min_nx();
 
         int lb= Nbx+steps;
-        //return lb;
+        this->lb = lb;
+        return lb;
+
+        /* El resto no es correcto :c */
             
        
         //Contenedores que se deben colocar  (en orden decreciente)
