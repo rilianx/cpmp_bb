@@ -39,6 +39,7 @@ class Layout {
         list <int> bsg_moves;
         set <int> dismantled_stacks;
         list < pair<int,int> > seq;
+        set <int, std::greater<int>> gvalues;
 
         //multimap <int ,int> gv2index; //for the beamsearch (type:SDPP)
         int last_sd =-1; /*last dismantled stack*/
@@ -151,6 +152,12 @@ class Layout {
                 cout << "]\n";
             }
         }
+
+        //functions for computing lb
+        void cummulative_demand(map <int, int, std::greater<int> >& demand);
+        void availability(map <int, int, std::greater<int>>& available);
+        pair<int,int> gv_max_lack(map <int, int, std::greater<int>>& demand, map <int, int, std::greater<int>>& available);
+        int lb2();
 
         int lbatman(bool verbose=false);
 
@@ -470,6 +477,7 @@ class Layout {
             
             int bx = unsorted_elements;
             int Nbx = bx+min_nx();
+
             //SIMPLE RETORNAR AQUI
                 //SIMPLE HERE
             lb= bx+steps;
@@ -592,11 +600,10 @@ class Layout {
             }
         };
 
-        //lbatman arrays
-        vector <int> disponible;
-        vector <double> multiplicador;
-        vector <int> costs;
-        vector <int> benefits;
+
+
+
+
 
 
 

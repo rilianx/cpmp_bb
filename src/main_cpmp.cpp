@@ -73,7 +73,7 @@ class Nodo
                         actual->move(i,j);
                         int aux=actual->lb;
 
-                        actual->lbatman();
+                        actual->lb2();
 
                         actual->move(j,i); actual->steps-=2; 
                         actual->seq.pop_front(); actual->seq.pop_front(); 
@@ -179,7 +179,7 @@ class Tree
         Nodo* root = new Nodo(l,lvl,NULL);
 
         //Se calcula lb de la raiz
-        root->actual->lbatman();
+        root->actual->lb2();
         lbs[root->actual->lb]=1; 
         
         //Para almacenar nodos
@@ -257,6 +257,13 @@ int main(int argc, char * argv[]){
     Layout L(path);
 
     Layout * nuevo = new Layout(L);
+    //L.print(L.stacks);
+    //cout << "lb:" << nuevo->lb2() << endl;
+    //cout << endl;
+    
+    //exit(0);
+
+
   
     const clock_t begin_tree = clock();
     Tree::search2(nuevo,0);

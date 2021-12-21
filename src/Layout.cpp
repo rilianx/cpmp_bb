@@ -4,6 +4,8 @@ namespace cpmp {
 
 int Layout::H=0;
 
+
+
 Layout::Layout(string filename)  {
     //stacks are read from file
 
@@ -21,6 +23,7 @@ Layout::Layout(string filename)  {
         for(int j=0;j<n;j++) {
             myfile >> el;
             stacks[i].push_back(el);
+            gvalues.insert(el);
         }
         if (n == H) full_stacks++;
         sorted_elements[i] = compute_sorted_elements(stacks[i]);
@@ -31,10 +34,9 @@ Layout::Layout(string filename)  {
     }
 
 
-    disponible.resize(n_stacks);
-    multiplicador.resize(n_stacks);
-    costs.resize(n_stacks);
-    benefits.resize(n_stacks);
+
+
+
 }
 
 int Layout::move(int i, int j){
