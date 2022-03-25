@@ -159,6 +159,8 @@ namespace cpmp {
         this->lb = lb;
         return lb;
 
+        int n_stacks = stacks.size();
+
         vector <int> disponible(n_stacks);
         vector <double> multiplicador(n_stacks);
         vector <int> costs(n_stacks);

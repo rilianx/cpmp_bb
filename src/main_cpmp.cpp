@@ -27,11 +27,15 @@ class Nodo
 {
     public:
         Layout * actual;
-        Nodo * padre;
-        list <Nodo *> hijos;
+        Nodo * padre = NULL;
+        int n_children=0;
+        list < pair<int, int> > valid_moves;
+
         int nivel;
         bool greedy_child;
-        int score = 0;
+        double score = 0;
+        int ub = 0;
+        
 
     /*************************************************************/
     ///////////////////////BOB EL CONSTRUCTOR//////////////////////
@@ -50,6 +54,54 @@ class Nodo
         ~Nodo()
         {
             delete(actual);
+        }
+
+        Nodo* next_child(int U){
+            if(n_children == 0){
+                int stacks = actual->stacks.size();
+                int i,j;
+                int h = actual->H;
+                //Por cada stack
+                for (i=0;i<stacks;i++){
+                    for (j=0;j<stacks;j++){
+                        //Si la columna actual no tiene tamaño 0 y Si la columna objetivo no esta llena
+                        if (i != j && actual->stacks[i].size() != 0 && actual->stacks[j].size() != h && 
+                                            actual->validate_move(i,j) &&  actual->validate_move2(i,j)){
+                            int c = actual->stacks[i].back(); 
+
+                            valid_moves.push_back( make_pair(i,j) );    
+                        }
+                    }
+                }   
+            }
+
+            while(valid_moves.size()>0){
+                pair <int,int> move = valid_moves.front();
+                valid_moves.pop_front();
+                int i=move.first, j=move.second;
+
+                int aux=actual->lb;
+                actual->move(i,j);
+                actual->lb2();
+                int new_lb=actual->lb;
+                actual->lb=aux; 
+                actual->move(j,i); actual->steps-=2; 
+                actual->seq.pop_front(); actual->seq.pop_front(); 
+            
+                if (new_lb < U){
+                    //Se crea un nuevo nodo
+                    Nodo * niu = new Nodo(actual,(nivel)+1,this);
+                    //Se realiza el movimiento
+                    niu->actual->move(i,j);
+                    niu->actual->lb = new_lb;
+
+                    n_children++;
+                    //Se retorna
+                    return niu;
+                }
+            }
+            return NULL;
+
         }
 
          void get_children(list <Nodo*> &children, int U)
@@ -112,6 +164,17 @@ public:
     else return (false);
   }
 };
+
+class compare_nodes3
+{
+
+public:
+  bool operator() (const Nodo* lhs, const Nodo* rhs) const
+  {
+    if (lhs->score <= rhs->score) return (true);
+    else return (false);
+  }
+}; 
 
 class Tree
 {
@@ -249,6 +312,99 @@ class Tree
         
     }
      /*************************************************************/
+
+
+ //lb dynamic search
+ static void search3(Layout* l, int lvl)
+    {
+        
+        Nodo* root = new Nodo(l,lvl,NULL);
+
+        //stack for the deep first search
+        stack<Nodo*> S;
+        S.push(root);
+        root->actual->lb2();
+
+        int U = greedy(root->actual), L=root->actual->lb; 
+        int sims=0, dynamic_lb=0;
+
+        int contadorDeNodos = 0;
+        
+        map< int, priority_queue<Nodo*, vector<Nodo*>, compare_nodes3> > Qs;
+        while (S.size()!=0 || Qs.size()!=0 ){
+            Nodo* n = NULL;
+
+            //diving
+            if (S.size()!=0){
+                n = S.top(); S.pop();
+            }else{
+                sims++;
+                while(Qs.find(dynamic_lb) == Qs.end() ) 
+                    dynamic_lb = (dynamic_lb+1)%(U+1);
+
+                n = Qs[dynamic_lb].top(); Qs[dynamic_lb].pop();
+                if (Qs[dynamic_lb].size()==0) Qs.erase(dynamic_lb);
+
+                //cout << dynamic_lb << "," << U << endl;
+            }
+
+            L = 0;
+            while(Qs.size()>0 && Qs.find(L) == Qs.end()) L++;
+            if (L==0) L = n->actual->lb;
+            else L= min (n->actual->lb, L);
+
+            cout << U <<","<< L << endl;
+
+            int u = 1000;
+            if (n->actual->unsorted_stacks==0) u=n->actual->steps;
+
+            if (u < U) {
+                U = u;
+                cout << U << endl;
+            }
+            if (L == U){
+                cout << U << " " << contadorDeNodos << " ";
+                return;
+            } 
+            
+            if (n->actual->lb >= U){
+                int new_ub = n->actual->lb;
+                Nodo* aux=n->padre;
+                //update priority
+
+                while (aux){ 
+				    aux->ub= min(aux->ub, new_ub);
+                    aux->score  = -100*aux->n_children + aux->actual->steps + 0.01*aux->ub;
+					aux=aux->padre;
+                }
+               
+
+                //delete(n);
+                continue;
+            }
+
+            Nodo* child = n->next_child(U);
+
+            if(child) {
+                S.push(child);
+                Qs[child->actual->lb].push(n);
+            }
+
+            //else delete(n);
+
+
+
+
+
+        }
+
+
+        cout << U << " " << contadorDeNodos << " ";
+
+
+        
+    }
+
 };
 
 int main(int argc, char * argv[]){
@@ -266,8 +422,8 @@ int main(int argc, char * argv[]){
 
   
     const clock_t begin_tree = clock();
-    Tree::search2(nuevo,0);
-    //Tree * arbolTest= new Tree(nuevo,0);
+    //Tree::search2(nuevo,0);
+    Tree::search3(nuevo,0);
 
     cout << (float( clock () - begin_tree ) /  CLOCKS_PER_SEC) << endl;
     //delete arbolTest;
