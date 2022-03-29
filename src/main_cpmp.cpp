@@ -33,6 +33,7 @@ class Nodo
 
         int nivel;
         bool greedy_child;
+        bool selected = false;
         double score = 0;
         int ub = 0;
         
@@ -317,41 +318,66 @@ class Tree
  //lb dynamic search
  static void search3(Layout* l, int lvl)
     {
-        
         Nodo* root = new Nodo(l,lvl,NULL);
 
-        //stack for the deep first search
-        stack<Nodo*> S;
-        S.push(root);
+        //node for the deep first search
+        Nodo* sim_node = root;
         root->actual->lb2();
 
+        //stack for the dfs branch
+        list<Nodo*> branch;
+
         int U = greedy(root->actual), L=root->actual->lb; 
-        int sims=0, dynamic_lb=0;
+        int sims=0, current_lb=0;
 
         int contadorDeNodos = 0;
         
+        //colas para guardar nodos con distintos lb
         map< int, priority_queue<Nodo*, vector<Nodo*>, compare_nodes3> > Qs;
-        while (S.size()!=0 || Qs.size()!=0 ){
+        map< int, int > sel;
+        map< int, int > max_children;
+
+        while (sim_node || Qs.size()!=0 ){
             Nodo* n = NULL;
 
-            //diving
-            if (S.size()!=0){
-                n = S.top(); S.pop();
-            }else{
+            if (sim_node){ //diving
+                n = sim_node;
+            }else{ //selecting the node to simulate
                 sims++;
-                while(Qs.find(dynamic_lb) == Qs.end() ) 
-                    dynamic_lb = (dynamic_lb+1)%(U+1);
+                //TODO: condición para aumentar current_lb
 
-                n = Qs[dynamic_lb].top(); Qs[dynamic_lb].pop();
-                if (Qs[dynamic_lb].size()==0) Qs.erase(dynamic_lb);
+                while(Qs.find(current_lb) == Qs.end() ) 
+                    current_lb = (current_lb+1)%(U+1);
+
+                //se verifica condición para seleccionar
+                //que la cantidad de nodos seleccionados con = lb sea menor a max_children
+                bool done = false;
+                while(!done){
+                    n = Qs[current_lb].top(); Qs[current_lb].pop();
+                    if (Qs[current_lb].size()==0) Qs.erase(current_lb);
+
+                    done = true;
+                    if (sel[current_lb]>=max_children[current_lb] && n->selected==false){
+                        n->score  = -100*(sel[current_lb]+1) - n->ub + 0.01*n->actual->steps;
+                        Qs[current_lb].push(n); done=false;
+                    }else if (n->selected){
+                        if (max_children.find(current_lb) == max_children.end() || n->n_children > max_children[current_lb])
+                            max_children[current_lb]=n->n_children;
+                    }
+                }
+
+                //nodes selected in current_lb
+                n->selected=true;
+                if(sel.find(current_lb) == sel.end()) sel[current_lb]=0;
+                sel[current_lb]++;
+                
 
                 //cout << dynamic_lb << "," << U << endl;
             }
 
-            L = 0;
-            while(Qs.size()>0 && Qs.find(L) == Qs.end()) L++;
-            if (L==0) L = n->actual->lb;
-            else L= min (n->actual->lb, L);
+            //compute L
+            L = n->actual->lb;
+            if(Qs.size()>0) L=min(L,Qs.begin()->first);
 
             cout << U <<","<< L << endl;
 
@@ -362,23 +388,24 @@ class Tree
                 U = u;
                 cout << U << endl;
             }
+
             if (L == U){
                 cout << U << " " << contadorDeNodos << " ";
                 return;
             } 
             
+            //cut branch
             if (n->actual->lb >= U){
                 int new_ub = n->actual->lb;
-                Nodo* aux=n->padre;
-                //update priority
-
-                while (aux){ 
-				    aux->ub= min(aux->ub, new_ub);
-                    aux->score  = -100*aux->n_children + aux->actual->steps + 0.01*aux->ub;
-					aux=aux->padre;
+                //update scores in branch and push back in Qs
+                for (Nodo* np:branch){
+                    np->ub=new_ub; //last ub
+                     //prioriza menos hijos, más profundidad, menor ub
+                    np->score  = -100*np->n_children - np->ub + 0.01*np->actual->steps;
+                    Qs[np->actual->lb].push(np);
                 }
-               
-
+                branch.clear();
+                
                 //delete(n);
                 continue;
             }
@@ -386,8 +413,8 @@ class Tree
             Nodo* child = n->next_child(U);
 
             if(child) {
-                S.push(child);
-                Qs[child->actual->lb].push(n);
+                sim_node=child;
+                branch.push_back(n);
             }
 
             //else delete(n);
