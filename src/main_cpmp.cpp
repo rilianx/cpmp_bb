@@ -8,6 +8,8 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <iostream>
+#include <random>
 #include <stdexcept>
 #include<ctime>
 #include "dirent.h"
@@ -30,6 +32,7 @@ class Nodo
         Nodo * padre = NULL;
         int n_children=0;
         list < pair<int, int> > valid_moves;
+        list < pair<int, int> > simulation;
 
         int nivel;
         bool greedy_child;
@@ -57,43 +60,54 @@ class Nodo
             delete(actual);
         }
 
-        Nodo* next_child(int U){
+        Nodo* next_child(int U, pair <int,int> default_action = make_pair(-1,-1) ){
+            //cout << "** next child ("<< default_action.first << "," << default_action.second << ")**" << endl;
+            //cout << n_children << endl;
             if(n_children == 0){
                 int stacks = actual->stacks.size();
                 int i,j;
                 int h = actual->H;
                 //Por cada stack
-                for (i=0;i<stacks;i++){
+                for (i=0;i<stacks;i++)
                     for (j=0;j<stacks;j++){
+                        if(default_action.first==i && default_action.second==j) continue;
                         //Si la columna actual no tiene tamaño 0 y Si la columna objetivo no esta llena
                         if (i != j && actual->stacks[i].size() != 0 && actual->stacks[j].size() != h && 
                                             actual->validate_move(i,j) &&  actual->validate_move2(i,j)){
                             int c = actual->stacks[i].back(); 
+                            int top_dest = Layout::gvalue(actual->stacks[j]);
 
-                            valid_moves.push_back( make_pair(i,j) );    
+                            valid_moves.push_back( make_pair(i,j) );
+
                         }
                     }
-                }   
+
+                //std::random_device rd;
+                //std::mt19937 generator(rd());
+                //std::shuffle(valid_moves.begin(), valid_moves.end(), generator);  
+
+                if (default_action.first!=-1) valid_moves.push_front(default_action);
             }
 
+           
             while(valid_moves.size()>0){
                 pair <int,int> move = valid_moves.front();
                 valid_moves.pop_front();
                 int i=move.first, j=move.second;
 
                 int aux=actual->lb;
-                actual->move(i,j);
+                actual->move(i,j,false);
                 actual->lb2();
                 int new_lb=actual->lb;
                 actual->lb=aux; 
-                actual->move(j,i); actual->steps-=2; 
-                actual->seq.pop_front(); actual->seq.pop_front(); 
+                actual->move(j,i,false); actual->steps-=2; 
+               
             
                 if (new_lb < U){
                     //Se crea un nuevo nodo
                     Nodo * niu = new Nodo(actual,(nivel)+1,this);
                     //Se realiza el movimiento
-                    niu->actual->move(i,j);
+                    niu->actual->move(i,j,false);
                     niu->actual->lb = new_lb;
 
                     n_children++;
@@ -101,6 +115,7 @@ class Nodo
                     return niu;
                 }
             }
+
             return NULL;
 
         }
@@ -315,118 +330,144 @@ class Tree
      /*************************************************************/
 
 
+static int simulate(Nodo* n, map< int, priority_queue<Nodo*, vector<Nodo*>, compare_nodes3> >& Qs, int U){
+    //cout << "** simulation **" << endl;
+    
+    Nodo* child = (n->padre == NULL && n->n_children==0)? n : n->next_child(U);
+    if(!child) {
+        //cout << "no child" << endl;
+        return 1000;
+    }
+
+    int lb = child->actual->lb;
+    int ub = n->ub;
+    list < pair <int,int> > seq = n->simulation;
+    n->simulation.clear();
+
+    if(seq.size()==0){ //si no ha sido simulada la rama
+        Layout lay=*child->actual;
+        //lay.print();
+        ub = greedy_solve(lay,U);
+        //lay.print();
+
+        if(ub==-1) ub = U+lay.unsorted_elements;
+        seq=lay.seq;
+    }
+
+    Nodo* ch = child;
+    while(seq.size()>0){
+        //cout << seq.back().first << seq.back().second << endl;
+        ch = child->next_child(U,seq.back()); seq.pop_back();
+        if (!ch) break; //child lb equal or worst than UB
+
+        ch->ub=ub; //last ub
+        //prioriza menos hijos, más profundidad, menor ub
+        ch->score  = -100*ch->n_children - ch->ub + 0.01*ch->actual->steps;
+        Qs[ch->actual->lb].push(ch);
+
+        if(ch->actual->lb > lb) {
+            ch->simulation = seq;
+            break;
+        }
+    }
+    //cout << "** end simulation ("<< ub <<") **" << endl;
+    return ub;
+}
+
+
  //lb dynamic search
  static void search3(Layout* l, int lvl)
     {
-        Nodo* root = new Nodo(l,lvl,NULL);
-
-        //node for the deep first search
-        Nodo* sim_node = root;
-        root->actual->lb2();
-
-        //stack for the dfs branch
-        list<Nodo*> branch;
-
-        int U = greedy(root->actual), L=root->actual->lb; 
-        int sims=0, current_lb=0;
-
-        int contadorDeNodos = 0;
-        
         //colas para guardar nodos con distintos lb
         map< int, priority_queue<Nodo*, vector<Nodo*>, compare_nodes3> > Qs;
         map< int, int > sel;
         map< int, int > max_children;
 
-        while (sim_node || Qs.size()!=0 ){
+        Nodo* root = new Nodo(l,lvl,NULL);
+        root->actual->lb2();
+        root->selected = true;
+        int U = simulate(root, Qs, 1000), L=root->actual->lb; 
+        Qs[root->actual->lb].push(root);
+
+
+        int sims=0, current_lb=0;
+        int contadorDeNodos = 0;
+
+        cout << root->actual->lb << ";" << U << endl;
+
+        while ( Qs.size()!=0 ){
+            //selecting the node to simulate
+            sims++;
+            //TODO: condición para aumentar current_lb
+            while(Qs.find(current_lb) == Qs.end() ) 
+                current_lb = (current_lb+1)%U;
+
+            if (max_children.find(current_lb) == max_children.end()) max_children[current_lb] = 1;
+
+            //se verifica condición para seleccionar
+            //que la cantidad de nodos seleccionados con = lb sea menor a max_children
             Nodo* n = NULL;
-
-            if (sim_node){ //diving
-                n = sim_node;
-            }else{ //selecting the node to simulate
-                sims++;
-                //TODO: condición para aumentar current_lb
-
-                while(Qs.find(current_lb) == Qs.end() ) 
-                    current_lb = (current_lb+1)%(U+1);
-
-                //se verifica condición para seleccionar
-                //que la cantidad de nodos seleccionados con = lb sea menor a max_children
-                bool done = false;
-                while(!done){
-                    n = Qs[current_lb].top(); Qs[current_lb].pop();
-                    if (Qs[current_lb].size()==0) Qs.erase(current_lb);
-
-                    done = true;
-                    if (sel[current_lb]>=max_children[current_lb] && n->selected==false){
-                        n->score  = -100*(sel[current_lb]+1) - n->ub + 0.01*n->actual->steps;
-                        Qs[current_lb].push(n); done=false;
-                    }else if (n->selected){
-                        if (max_children.find(current_lb) == max_children.end() || n->n_children > max_children[current_lb])
-                            max_children[current_lb]=n->n_children;
-                    }
-                }
-
-                //nodes selected in current_lb
-                n->selected=true;
-                if(sel.find(current_lb) == sel.end()) sel[current_lb]=0;
-                sel[current_lb]++;
+            bool done = false;
+            //cout << 1 << endl;
+            while(!done){
+                n = Qs[current_lb].top(); Qs[current_lb].pop();
                 
 
-                //cout << dynamic_lb << "," << U << endl;
+                done = true;
+                //cout << current_lb << ":" << n->score << "," << sel[current_lb] << "," << max_children[current_lb] <<","<< Qs[current_lb].size() << endl;
+                if (Qs[current_lb].size()==0) Qs.erase(current_lb);
+
+                /*if (n->selected==false && sel[current_lb]>=max_children[current_lb]){
+                    n->score  = -100*(sel[current_lb]+1) - n->ub + 0.01*n->actual->steps;
+                    
+                    Qs[current_lb].push(n); done=false;
+                }else if (n->selected){
+                    if (max_children.find(current_lb) == max_children.end() || n->n_children > max_children[current_lb])
+                        max_children[current_lb]=n->n_children;
+                }*/
             }
+            //cout << 2 << endl;
 
-            //compute L
-            L = n->actual->lb;
-            if(Qs.size()>0) L=min(L,Qs.begin()->first);
+            //count selected nodes with current_lb
+            if(n->selected == false) sel[current_lb]++;      
+            n->selected=true;
+            if(sel.find(current_lb) == sel.end()) sel[current_lb]=0;
+               
 
-            cout << U <<","<< L << endl;
-
-            int u = 1000;
-            if (n->actual->unsorted_stacks==0) u=n->actual->steps;
+            //cout << "level:" << n->nivel << endl;
+            int u = simulate(n, Qs, U);
+            cout << current_lb <<"," << U << endl;
 
             if (u < U) {
-                U = u;
-                cout << U << endl;
-            }
-
-            if (L == U){
-                cout << U << " " << contadorDeNodos << " ";
-                return;
-            } 
-            
-            //cut branch
-            if (n->actual->lb >= U){
-                int new_ub = n->actual->lb;
-                //update scores in branch and push back in Qs
-                for (Nodo* np:branch){
-                    np->ub=new_ub; //last ub
-                     //prioriza menos hijos, más profundidad, menor ub
-                    np->score  = -100*np->n_children - np->ub + 0.01*np->actual->steps;
-                    Qs[np->actual->lb].push(np);
-                }
-                branch.clear();
+                for(;U>u;U--)
+                    Qs.erase(U);
+                Qs.erase(U);
                 
-                //delete(n);
-                continue;
+
+                cout << U << endl;
+                if (current_lb >= U) {
+                    sel[current_lb]--; 
+                    delete(n);
+                    continue;
+                }
             }
 
-            Nodo* child = n->next_child(U);
+            //compute Lower bound
+            if(n->valid_moves.size()>0) {
+                n->score = -100*n->n_children - n->ub + 0.01*n->actual->steps;
+                //cout << n->score << endl;
+                Qs[current_lb].push(n);
+            }else
+                sel[current_lb]--; 
+            
+            L=min(L,Qs.begin()->first);
 
-            if(child) {
-                sim_node=child;
-                branch.push_back(n);
-            }
-
-            //else delete(n);
-
-
-
-
-
+            if (L == U) break;
+            
         }
 
 
-        cout << U << " " << contadorDeNodos << " ";
+        cout << U << " " << sims << " ";
 
 
         

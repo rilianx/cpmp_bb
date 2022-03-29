@@ -338,7 +338,10 @@ int greedy_solve(Layout& layout, int step_limit){
     while (layout.unsorted_stacks>0 && layout.steps < step_limit){
         int steps_old=layout.steps;
         iter_greedy(layout);
-        if (layout.steps==steps_old) return -1;
+        
+        if (layout.steps==steps_old) {
+            return -1;
+        }
     }
     if(layout.steps >= step_limit ) return -1;
 
