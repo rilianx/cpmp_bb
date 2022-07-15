@@ -50,7 +50,7 @@ class Layout {
 
         Layout(string filename);
 
-        int move(int i, int j);
+        int move(int i, int j, bool seqq=true);
 
         //Return false if it detect an unrelated move symmetry
         bool validate_move(int s1, int s2){
@@ -132,7 +132,7 @@ class Layout {
             return sorted_elements;
         }
 
-        static int gvalue(deque<int> stack){
+        static int gvalue(const deque<int>& stack){
             if (stack.size()==0) return 100;
             else return stack.back();
         }

@@ -39,7 +39,7 @@ Layout::Layout(string filename)  {
 
 }
 
-int Layout::move(int i, int j){
+int Layout::move(int i, int j, bool seqq){
     if(stacks[i].size() == 0 || stacks[j].size()==H){
         print();
         cout << endl << "error: move (" << i << "," << j << ") is not feasible" << endl;
@@ -71,7 +71,8 @@ int Layout::move(int i, int j){
     stacks[j].push_back(c);
 
     steps ++;
-    seq.push_front(make_pair(i,j));
+    if (seqq)
+        seq.push_front(make_pair(i,j));
     return c;
 }
 
