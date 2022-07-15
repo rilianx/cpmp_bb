@@ -34,7 +34,7 @@ class Nodo
         int nivel;
         bool greedy_child;
         double score = 0;
-        int ub = 0;
+        int ub = 100;
         
 
     /*************************************************************/
@@ -171,7 +171,7 @@ class compare_nodes3
 public:
   bool operator() (const Nodo* lhs, const Nodo* rhs) const
   {
-    if (lhs->score <= rhs->score) return (true);
+    if (lhs->score >= rhs->score) return (true);
     else return (false);
   }
 }; 
@@ -336,7 +336,9 @@ class Tree
 
             //diving
             if (S.size()!=0){
+
                 n = S.top(); S.pop();
+                //cout << n->actual->steps << endl;
             }else{
                 sims++;
                 while(Qs.find(dynamic_lb) == Qs.end() ) 
@@ -344,6 +346,8 @@ class Tree
 
                 n = Qs[dynamic_lb].top(); Qs[dynamic_lb].pop();
                 if (Qs[dynamic_lb].size()==0) Qs.erase(dynamic_lb);
+
+                cout <<n->actual->lb <<"," << n->n_children << "," << n->actual->steps << ";" << n->ub << endl;
 
                 //cout << dynamic_lb << "," << U << endl;
             }
@@ -353,7 +357,7 @@ class Tree
             if (L==0) L = n->actual->lb;
             else L= min (n->actual->lb, L);
 
-            cout << U <<","<< L << endl;
+            
 
             int u = 1000;
             if (n->actual->unsorted_stacks==0) u=n->actual->steps;
@@ -369,6 +373,7 @@ class Tree
             
             if (n->actual->lb >= U){
                 int new_ub = n->actual->lb;
+                cout << new_ub << endl;
                 Nodo* aux=n->padre;
                 //update priority
 
@@ -387,7 +392,7 @@ class Tree
 
             if(child) {
                 S.push(child);
-                Qs[child->actual->lb].push(n);
+                Qs[n->actual->lb].push(n);
             }
 
             //else delete(n);
